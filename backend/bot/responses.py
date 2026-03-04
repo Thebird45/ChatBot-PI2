@@ -1,11 +1,11 @@
 import os
 import json
-import anthropic
+from groq import AsyncGroq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 # ─── Base de conocimiento ───────────────────────────────────────────────────
 def load_knowledge_base():
@@ -19,16 +19,16 @@ knowledge = load_knowledge_base()
 
 # ─── Intenciones del chatbot ─────────────────────────────────────────────────
 INTENTS = {
-    "heroes":       ["héroe", "hero", "guerrero", "mago", "pícaro", "sanador", "tanque", "poder", "vida", "defensa", "ataque", "daño"],
-    "items":        ["arma", "armadura", "ítem", "item", "carta", "mazo", "equipo"],
-    "mecanicas":    ["combate", "turno", "misión", "misiones", "reglas", "modalidad", "jugar", "como se juega"],
-    "cuenta":       ["registro", "cuenta", "contraseña", "perfil", "login", "acceso"],
-    "subasta":      ["subasta", "comprar", "vender", "comercio", "precio", "mercado"],
-    "soporte":      ["error", "problema", "bug", "falla", "no funciona", "ayuda técnica"],
-    "faq":          ["qué es", "para qué", "cómo funciona", "explicame", "cuéntame"],
+    "heroes":    ["héroe", "hero", "guerrero", "mago", "pícaro", "sanador", "tanque", "poder", "vida", "defensa", "ataque", "daño"],
+    "items":     ["arma", "armadura", "ítem", "item", "carta", "mazo", "equipo"],
+    "mecanicas": ["combate", "turno", "misión", "misiones", "reglas", "modalidad", "jugar", "como se juega"],
+    "cuenta":    ["registro", "cuenta", "contraseña", "perfil", "login", "acceso"],
+    "subasta":   ["subasta", "comprar", "vender", "comercio", "precio", "mercado"],
+    "soporte":   ["error", "problema", "bug", "falla", "no funciona", "ayuda técnica"],
+    "faq":       ["qué es", "para qué", "cómo funciona", "explicame", "cuéntame"],
 }
 
-# Sugerencias de preguntas por intención
+# ─── Sugerencias por intención ───────────────────────────────────────────────
 SUGGESTIONS = {
     "heroes":    ["¿Cuáles son los tipos de héroes?", "¿Qué estadísticas tiene el Guerrero Tanque?", "¿Cómo funciona el poder de los héroes?"],
     "items":     ["¿Qué armas están disponibles?", "¿Cómo funcionan las armaduras?", "¿Qué son las habilidades épicas?"],
@@ -93,16 +93,16 @@ async def get_response(user_message: str, history: list) -> dict:
     # Detectar intención
     intent = detect_intent(user_message)
 
-    # Obtener sugerencias según intención
+    # Sugerencias según intención
     suggestions = SUGGESTIONS.get(intent, [
         "¿Cómo funciona el combate?",
         "¿Cuáles son los héroes disponibles?",
         "¿Necesitas ayuda con tu cuenta?"
     ])
 
-    # Construir historial para Claude
-    messages = []
-    for msg in history[:-1]:  # Excluir el último (es el mensaje actual)
+    # Construir historial para Groq
+    messages = [{"role": "system", "content": build_system_prompt()}]
+    for msg in history[:-1]:
         messages.append({
             "role": msg["role"],
             "content": msg["content"]
@@ -110,14 +110,14 @@ async def get_response(user_message: str, history: list) -> dict:
     messages.append({"role": "user", "content": user_message})
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+        response = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
             max_tokens=500,
-            system=build_system_prompt(),
-            messages=messages
+            temperature=0.7
         )
 
-        bot_reply = response.content[0].text
+        bot_reply = response.choices[0].message.content
 
         return {
             "response": bot_reply,
@@ -127,7 +127,7 @@ async def get_response(user_message: str, history: list) -> dict:
 
     except Exception as e:
         return {
-            "response": "Lo siento, ocurrió un error al procesar tu consulta. Por favor intenta de nuevo.",
+            "response": f"Lo siento, ocurrió un error al procesar tu consulta. Por favor intenta de nuevo. Error: {str(e)}",
             "intent": "error",
             "suggestions": ["¿Necesitas ayuda técnica?", "¿Cómo contacto soporte?"]
         }
