@@ -6,6 +6,14 @@ const USER_ID = "user_" + Math.random().toString(36).substr(2, 9);
 let isOpen = false;
 let isTyping = false;
 
+// ─── Timestamp ────────────────────────────────────────────────────────────────
+function getTimestamp() {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+}
+
 // ─── Crear widget en el DOM ───────────────────────────────────────────────────
 function createWidget() {
     const widget = document.createElement("div");
@@ -36,8 +44,11 @@ function createWidget() {
             <!-- Mensajes -->
             <div id="chat-messages">
                 <div class="message bot-message">
-                    👋 ¡Hola! Soy <strong>NexusBot</strong>, tu asistente en THE NEXUS BATTLES V.
-                    ¿En qué puedo ayudarte hoy?
+                    <div class="message-content">
+                        👋 ¡Hola! Soy <strong>NexusBot</strong>, tu asistente en THE NEXUS BATTLES V.
+                        ¿En qué puedo ayudarte hoy?
+                    </div>
+                    <div class="message-timestamp">${getTimestamp()}</div>
                 </div>
             </div>
 
@@ -71,6 +82,18 @@ function toggleChat() {
     const toggle = document.getElementById("chat-toggle");
     chatWindow.style.display = isOpen ? "flex" : "none";
     toggle.style.display = isOpen ? "none" : "flex";
+
+    // Al abrir, scroll al último mensaje
+    if (isOpen) scrollToBottom();
+}
+
+// ─── Auto-scroll al fondo ─────────────────────────────────────────────────────
+function scrollToBottom() {
+    const messagesDiv = document.getElementById("chat-messages");
+    messagesDiv.scrollTo({
+        top: messagesDiv.scrollHeight,
+        behavior: "smooth"
+    });
 }
 
 // ─── Mostrar mensaje en pantalla ──────────────────────────────────────────────
@@ -78,9 +101,12 @@ function appendMessage(content, sender = "bot") {
     const messagesDiv = document.getElementById("chat-messages");
     const msg = document.createElement("div");
     msg.classList.add("message", sender === "user" ? "user-message" : "bot-message");
-    msg.innerHTML = content;
+    msg.innerHTML = `
+        <div class="message-content">${content}</div>
+        <div class="message-timestamp">${getTimestamp()}</div>
+    `;
     messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    scrollToBottom();
 }
 
 // ─── Indicador "escribiendo..." ───────────────────────────────────────────────
@@ -89,9 +115,15 @@ function showTyping() {
     const typing = document.createElement("div");
     typing.id = "typing-indicator";
     typing.classList.add("message", "bot-message");
-    typing.innerHTML = `<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
+    typing.innerHTML = `
+        <div class="message-content">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+        </div>
+    `;
     messagesDiv.appendChild(typing);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    scrollToBottom();
 }
 
 function hideTyping() {
@@ -170,7 +202,8 @@ async function clearHistory() {
     const messagesDiv = document.getElementById("chat-messages");
     messagesDiv.innerHTML = `
         <div class="message bot-message">
-            🗑️ Historial limpiado. ¿En qué puedo ayudarte?
+            <div class="message-content">🗑️ Historial limpiado. ¿En qué puedo ayudarte?</div>
+            <div class="message-timestamp">${getTimestamp()}</div>
         </div>
     `;
 }
